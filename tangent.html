@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tangent Lines Analysis</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.26.0/plotly.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 10px;
+            background: linear-gradient(180deg, #87CEEB 0%, #87CEEB 60%, #32CD32 60%, #228B22 100%);
+            font-family: Arial, sans-serif;
+        }
+
+        #plot {
+            width: 100%;
+            height: 500px;
+            border-radius: 10px;
+            background: white;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="plot"></div>
+
+    <script>
+        function rollerCoasterFunction(x) {
+            if (x >= 0 && x < 5) {
+                return -0.04 * x * x + 2 * x;
+            } else if (x >= 5 && x < 10) {
+                return 2.55 * Math.sin(Math.PI * (x - 5)) + 9;
+            } else if (x >= 10 && x < 15) {
+                return -0.1 * Math.pow(x - 10, 2) - 1.6 * (x - 10) + 9;
+            } else if (x >= 15 && x < 20) {
+                return 2 * Math.cos(Math.PI * (x - 15)) - 2.6 * (x - 15) - 3.5;
+            } else if (x >= 20 && x <= 25) {
+                return -0.08 * Math.pow(x - 20, 2) - 2.6 * (x - 20) - 18.5;
+            }
+            return 0;
+        }
+
+        function firstDerivative(x) {
+            if (x >= 0 && x < 5) {
+                return -0.08 * x + 2;
+            } else if (x >= 5 && x < 10) {
+                return 2.55 * Math.PI * Math.cos(Math.PI * (x - 5));
+            } else if (x >= 10 && x < 15) {
+                return -0.2 * (x - 10) - 1.6;
+            } else if (x >= 15 && x < 20) {
+                return -2 * Math.PI * Math.sin(Math.PI * (x - 15)) - 2.6;
+            } else if (x >= 20 && x <= 25) {
+                return -0.16 * (x - 20) - 2.6;
+            }
+            return 0;
+        }
+
+        function generateData() {
+            const x = [];
+            const y = [];
+
+            for (let i = 0; i <= 1000; i++) {
+                const xVal = 25 * i / 1000;
+                x.push(xVal);
+                y.push(rollerCoasterFunction(xVal));
+            }
+
+            return {x, y};
+        }
+
+        function createVisualization() {
+            const data = generateData();
+
+            // Mario blue main track
+            const mainTrace = {
+                x: data.x,
+                y: data.y,
+                type: 'scatter',
+                mode: 'lines',
+                name: 'Track f(x)',
+                line: {
+                    color: '#0066CC', // Mario Blue
+                    width: 5
+                }
+            };
+
+            const traces = [mainTrace];
+
+            // Mario color scheme for tangent lines
+            const tangentPoints = [2.5, 7.5, 12.5, 17.5, 22.5];
+            const marioColors = [
+                '#E31C23', // Mario Red
+                '#FFD700', // Mario Gold  
+                '#00A652', // Mario Green
+                '#0066CC', // Mario Blue
+                '#FF6B35'  // Mario Orange
+            ];
+
+            tangentPoints.forEach((xPoint, i) => {
+                const yPoint = rollerCoasterFunction(xPoint);
+                const slope = firstDerivative(xPoint);
+
+                // Create tangent line
+                const tangentX = [];
+                const tangentY = [];
+                for (let j = -2.5; j <= 2.5; j += 0.1) {
+                    tangentX.push(xPoint + j);
+                    tangentY.push(yPoint + slope * j);
+                }
+
+                traces.push({
+                    x: tangentX,
+                    y: tangentY,
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: `Tangent (slope=${slope.toFixed(2)})`,
+                    line: {
+                        color: marioColors[i],
+                        width: 3,
+                        dash: 'dot'
+                    }
+                });
+
+                // Add point markers
+                traces.push({
+                    x: [xPoint],
+                    y: [yPoint],
+                    type: 'scatter',
+                    mode: 'markers',
+                    marker: {
+                        color: marioColors[i],
+                        size: 14,
+                        symbol: 'circle',
+                        line: {color: 'white', width: 2}
+                    },
+                    showlegend: false,
+                    hovertemplate: `Point (${xPoint}, ${yPoint.toFixed(1)})<br>Slope: ${slope.toFixed(2)}<extra></extra>`
+                });
+            });
+
+            const layout = {
+                xaxis: {
+                    title: 'Distance (m)',
+                    gridcolor: '#E0E0E0'
+                },
+                yaxis: {
+                    title: 'Height (m)',
+                    gridcolor: '#E0E0E0'
+                },
+                showlegend: true,
+                legend: {
+                    bgcolor: 'rgba(255,255,255,0.8)',
+                    bordercolor: '#8B4513',
+                    borderwidth: 1
+                },
+                plot_bgcolor: '#F0F8FF',
+                paper_bgcolor: 'white',
+                hovermode: 'closest',
+                margin: {t: 20, r: 20, b: 60, l: 60}
+            };
+
+            Plotly.newPlot('plot', traces, layout, {
+                responsive: true,
+                displayModeBar: false
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', createVisualization);
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Second Derivative</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.26.0/plotly.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 10px;
+            background: linear-gradient(180deg, #87CEEB 0%, #87CEEB 60%, #32CD32 60%, #228B22 100%);
+            font-family: Arial, sans-serif;
+        }
+
+        #plot {
+            width: 100%;
+            height: 500px;
+            border-radius: 10px;
+            background: white;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="plot"></div>
+
+    <script>
+        function rollerCoasterFunction(x) {
+            if (x >= 0 && x < 5) {
+                return -0.04 * x * x + 2 * x;
+            } else if (x >= 5 && x < 10) {
+                return 2.55 * Math.sin(Math.PI * (x - 5)) + 9;
+            } else if (x >= 10 && x < 15) {
+                return -0.1 * Math.pow(x - 10, 2) - 1.6 * (x - 10) + 9;
+            } else if (x >= 15 && x < 20) {
+                return 2 * Math.cos(Math.PI * (x - 15)) - 2.6 * (x - 15) - 3.5;
+            } else if (x >= 20 && x <= 25) {
+                return -0.08 * Math.pow(x - 20, 2) - 2.6 * (x - 20) - 18.5;
+            }
+            return 0;
+        }
+
+        function secondDerivative(x) {
+            if (x >= 0 && x < 5) {
+                return -0.08;
+            } else if (x >= 5 && x < 10) {
+                return -2.55 * Math.PI * Math.PI * Math.sin(Math.PI * (x - 5));
+            } else if (x >= 10 && x < 15) {
+                return -0.2;
+            } else if (x >= 15 && x < 20) {
+                return -2 * Math.PI * Math.PI * Math.cos(Math.PI * (x - 15));
+            } else if (x >= 20 && x <= 25) {
+                return -0.16;
+            }
+            return 0;
+        }
+
+        function generateData() {
+            const x = [];
+            const y = [];
+            const d2y = [];
+
+            for (let i = 0; i <= 1000; i++) {
+                const xVal = 25 * i / 1000;
+                x.push(xVal);
+                y.push(rollerCoasterFunction(xVal));
+                d2y.push(secondDerivative(xVal));
+            }
+
+            return {x, y, d2y};
+        }
+
+        function createVisualization() {
+            const data = generateData();
+
+            const traces = [
+                {
+                    x: data.x,
+                    y: data.y,
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: 'f(x) - Height',
+                    line: {color: '#0066CC', width: 4}, // Mario Blue
+                    yaxis: 'y'
+                },
+                {
+                    x: data.x,
+                    y: data.d2y,
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: 'f\'\'(x) - Concavity',
+                    line: {color: '#E31C23', width: 4}, // Mario Red
+                    yaxis: 'y2'
+                }
+            ];
+
+            // Zero line for second derivative
+            traces.push({
+                x: data.x,
+                y: data.x.map(() => 0),
+                type: 'scatter',
+                mode: 'lines',
+                name: 'f\'\'(x) = 0',
+                line: {color: '#8B4513', width: 2, dash: 'dash'},
+                yaxis: 'y2',
+                showlegend: true
+            });
+
+            // Shaded regions for concavity (Mario theme colors)
+            const concaveDownRegions = [[0, 5], [10, 15], [20, 25]];
+            concaveDownRegions.forEach(([start, end], index) => {
+                traces.push({
+                    x: [start, end, end, start],
+                    y: [-50, -50, 50, 50],
+                    fill: 'toself',
+                    fillcolor: index % 2 === 0 ? 'rgba(0, 102, 204, 0.1)' : 'rgba(0, 166, 82, 0.1)', // Alternating Mario Blue/Green
+                    line: {color: 'transparent'},
+                    name: index === 0 ? 'Concave Down' : '',
+                    yaxis: 'y2',
+                    showlegend: index === 0,
+                    hoverinfo: 'skip'
+                });
+            });
+
+            // Inflection points
+            const inflectionPoints = [7.5, 17.5]; // Approximate inflection points
+            inflectionPoints.forEach((x, i) => {
+                traces.push({
+                    x: [x],
+                    y: [secondDerivative(x)],
+                    type: 'scatter',
+                    mode: 'markers',
+                    yaxis: 'y2',
+                    marker: {
+                        color: '#FFD700', // Mario Gold
+                        size: 14,
+                        symbol: 'diamond',
+                        line: {color: '#E31C23', width: 2}
+                    },
+                    name: i === 0 ? 'Inflection Points' : '',
+                    showlegend: i === 0,
+                    hovertemplate: 'Inflection Point<br>Distance: %{x}m<extra></extra>'
+                });
+            });
+
+            const layout = {
+                xaxis: {
+                    title: 'Distance (m)',
+                    gridcolor: '#E0E0E0'
+                },
+                yaxis: {
+                    title: 'Height f(x)',
+                    side: 'left',
+                    titlefont: {color: '#0066CC'},
+                    tickfont: {color: '#0066CC'}
+                },
+                yaxis2: {
+                    title: 'Concavity f\'\'(x)',
+                    side: 'right',
+                    overlaying: 'y',
+                    titlefont: {color: '#E31C23'},
+                    tickfont: {color: '#E31C23'}
+                },
+                showlegend: true,
+                legend: {
+                    bgcolor: 'rgba(255,255,255,0.8)',
+                    bordercolor: '#8B4513',
+                    borderwidth: 1
+                },
+                plot_bgcolor: '#F0F8FF',
+                paper_bgcolor: 'white',
+                hovermode: 'x unified',
+                margin: {t: 20, r: 80, b: 60, l: 60}
+            };
+
+            Plotly.newPlot('plot', traces, layout, {
+                responsive: true,
+                displayModeBar: false
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', createVisualization);
+    </script>
+</body>
+
+</html>

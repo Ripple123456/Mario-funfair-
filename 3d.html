@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Visualization</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.26.0/plotly.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 10px;
+            background: linear-gradient(180deg, #87CEEB 0%, #87CEEB 60%, #32CD32 60%, #228B22 100%);
+            font-family: Arial, sans-serif;
+        }
+
+        #plot {
+            width: 100%;
+            height: 500px;
+            border-radius: 10px;
+            background: white;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 500px;
+            font-size: 18px;
+            color: #666;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="plot">
+        <div class="loading">Loading 3D Visualization...</div>
+    </div>
+
+    <script>
+        function rollerCoasterFunction(x) {
+            if (x >= 0 && x < 5) {
+                return -0.04 * x * x + 2 * x;
+            } else if (x >= 5 && x < 10) {
+                return 2.55 * Math.sin(Math.PI * (x - 5)) + 9;
+            } else if (x >= 10 && x < 15) {
+                return -0.1 * Math.pow(x - 10, 2) - 1.6 * (x - 10) + 9;
+            } else if (x >= 15 && x < 20) {
+                return 2 * Math.cos(Math.PI * (x - 15)) - 2.6 * (x - 15) - 3.5;
+            } else if (x >= 20 && x <= 25) {
+                return -0.08 * Math.pow(x - 20, 2) - 2.6 * (x - 20) - 18.5;
+            }
+            return 0;
+        }
+
+        function secondDerivative(x) {
+            if (x >= 0 && x < 5) {
+                return -0.08;
+            } else if (x >= 5 && x < 10) {
+                return -2.55 * Math.PI * Math.PI * Math.sin(Math.PI * (x - 5));
+            } else if (x >= 10 && x < 15) {
+                return -0.2;
+            } else if (x >= 15 && x < 20) {
+                return -2 * Math.PI * Math.PI * Math.cos(Math.PI * (x - 15));
+            } else if (x >= 20 && x <= 25) {
+                return -0.16;
+            }
+            return 0;
+        }
+
+        function generateData() {
+            const x = [];
+            const y = [];
+            const d2y = [];
+
+            // Use fewer points for better 3D performance
+            const points = 100;
+            for (let i = 0; i <= points; i++) {
+                const xVal = 25 * i / points;
+                x.push(xVal);
+                y.push(rollerCoasterFunction(xVal));
+                d2y.push(secondDerivative(xVal));
+            }
+
+            return {x, y, d2y};
+        }
+
+        function createVisualization() {
+            try {
+                const data = generateData();
+
+                // Create 3D surface data
+                const xData = data.x;
+                const yData = [-2, -1, 0, 1, 2]; // Width dimension
+                const zData = [];
+                const colorData = [];
+
+                // Build surface data
+                yData.forEach(() => {
+                    zData.push([...data.y]); // Create a copy of the array
+                });
+
+                // Create color data based on concavity
+                yData.forEach(() => {
+                    colorData.push(data.d2y.map(val => {
+                        if (val > 0.1) return 1;      // Concave up
+                        else if (val < -0.1) return -1; // Concave down
+                        else return 0;                   // Near inflection
+                    }));
+                });
+
+                // Mario-themed 3D surface
+                const surfaceTrace = {
+                    x: xData,
+                    y: yData,
+                    z: zData,
+                    type: 'surface',
+                    colorscale: [
+                        [0, '#0066CC'],      // Mario Blue - Concave down
+                        [0.5, '#FFD700'],    // Mario Gold - Inflection
+                        [1, '#E31C23']       // Mario Red - Concave up
+                    ],
+                    surfacecolor: colorData,
+                    opacity: 0.8,
+                    showscale: true,
+                    colorbar: {
+                        title: {
+                            text: 'Concavity',
+                            side: 'right'
+                        },
+                        tickmode: 'array',
+                        tickvals: [-1, 0, 1],
+                        ticktext: ['Concave Down', 'Inflection', 'Concave Up'],
+                        len: 0.7,
+                        thickness: 20
+                    },
+                    hovertemplate: 'Distance: %{x:.1f}m<br>Width: %{y}m<br>Height: %{z:.1f}m<extra></extra>'
+                };
+
+                // Mario green center line
+                const lineTrace = {
+                    x: data.x,
+                    y: data.x.map(() => 0),
+                    z: data.y,
+                    type: 'scatter3d',
+                    mode: 'lines',
+                    line: {
+                        color: '#00A652', // Mario Green
+                        width: 6
+                    },
+                    name: 'Center Track',
+                    hovertemplate: 'Center Track<br>Distance: %{x:.1f}m<br>Height: %{z:.1f}m<extra></extra>'
+                };
+
+                // Mario gold critical point
+                const criticalPoint3D = {
+                    x: [7.5],
+                    y: [0],
+                    z: [rollerCoasterFunction(7.5)],
+                    type: 'scatter3d',
+                    mode: 'markers',
+                    marker: {
+                        color: '#FFD700', // Mario Gold
+                        size: 8,
+                        symbol: 'diamond',
+                        line: {
+                            color: '#E31C23',  // Mario Red outline
+                            width: 2
+                        }
+                    },
+                    name: 'Peak Point',
+                    hovertemplate: 'Peak Point<br>Distance: %{x}m<br>Height: %{z:.1f}m<extra></extra>'
+                };
+
+                // Segment boundary points
+                const segmentPoints = [0, 5, 10, 15, 20, 25];
+                const segmentTrace3D = {
+                    x: segmentPoints,
+                    y: segmentPoints.map(() => 0),
+                    z: segmentPoints.map(x => rollerCoasterFunction(x)),
+                    type: 'scatter3d',
+                    mode: 'markers',
+                    marker: {
+                        color: '#FF6B35', // Mario Orange
+                        size: 6,
+                        symbol: 'square'
+                    },
+                    name: 'Segments',
+                    hovertemplate: 'Segment Point<br>Distance: %{x}m<br>Height: %{z:.1f}m<extra></extra>'
+                };
+
+                const layout = {
+                    scene: {
+                        xaxis: {
+                            title: 'Distance (m)',
+                            gridcolor: '#E0E0E0',
+                            linecolor: '#8B4513',
+                            showgrid: true,
+                            zeroline: false
+                        },
+                        yaxis: {
+                            title: 'Track Width',
+                            gridcolor: '#E0E0E0',
+                            linecolor: '#8B4513',
+                            showgrid: true,
+                            zeroline: false
+                        },
+                        zaxis: {
+                            title: 'Height (m)',
+                            gridcolor: '#E0E0E0',
+                            linecolor: '#8B4513',
+                            showgrid: true,
+                            zeroline: false
+                        },
+                        camera: {
+                            eye: {x: 1.8, y: 1.8, z: 1.5},
+                            center: {x: 0, y: 0, z: 0},
+                            up: {x: 0, y: 0, z: 1}
+                        },
+                        bgcolor: '#F0F8FF',
+                        aspectmode: 'manual',
+                        aspectratio: {x: 2, y: 0.5, z: 1}
+                    },
+                    showlegend: true,
+                    legend: {
+                        bgcolor: 'rgba(255,255,255,0.9)',
+                        bordercolor: '#8B4513',
+                        borderwidth: 1,
+                        x: 0.02,
+                        y: 0.98
+                    },
+                    paper_bgcolor: 'white',
+                    margin: {t: 30, r: 30, b: 30, l: 30},
+                    autosize: true
+                };
+
+                const config = {
+                    responsive: true,
+                    displayModeBar: false,
+                    doubleClick: 'reset'
+                };
+
+                Plotly.newPlot('plot', [surfaceTrace, lineTrace, criticalPoint3D, segmentTrace3D], layout, config);
+
+            } catch (error) {
+                console.error('Error creating 3D visualization:', error);
+                document.getElementById('plot').innerHTML = `
+                    <div class="loading" style="color: #E31C23;">
+                        Error loading 3D visualization. Please refresh the page.
+                    </div>
+                `;
+            }
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function () {
+            // Add a small delay to ensure Plotly is fully loaded
+            setTimeout(createVisualization, 100);
+        });
+
+        // Fallback for slow loading
+        window.addEventListener('load', function () {
+            setTimeout(() => {
+                if (document.querySelector('.loading')) {
+                    createVisualization();
+                }
+            }, 500);
+        });
+    </script>
+</body>
+
+</html>
