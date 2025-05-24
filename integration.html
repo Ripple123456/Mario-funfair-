@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Volume by Integration</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.26.0/plotly.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 10px;
+            background: linear-gradient(180deg, #87CEEB 0%, #87CEEB 60%, #32CD32 60%, #228B22 100%);
+            font-family: Arial, sans-serif;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .plot-container {
+            width: 100%;
+            height: 240px;
+            border-radius: 10px;
+            background: white;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .controls {
+            background: rgba(255,255,255,0.9);
+            padding: 10px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .controls button {
+            background: linear-gradient(45deg, #E31C23, #FF6B35);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            margin: 0 5px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .controls button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .controls button.active {
+            background: linear-gradient(45deg, #00A652, #32CD32);
+        }
+
+        .info-panel {
+            background: rgba(255,255,255,0.95);
+            padding: 15px;
+            border-radius: 10px;
+            border-left: 5px solid #E31C23;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .volume-display {
+            background: linear-gradient(45deg, #FFD700, #FFA500);
+            color: #8B4513;
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+
+        .segment-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .segment-card {
+            background: rgba(0,102,204,0.1);
+            padding: 8px;
+            border-radius: 6px;
+            border-left: 3px solid #0066CC;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Controls -->
+        <div class="controls">
+            <button id="btn-2d" class="active" onclick="show2DView()">📊 2D Cross-Section</button>
+            <button id="btn-3d" onclick="show3DVolume()">🌐 3D Volume</button>
+            <button id="btn-segments" onclick="showSegments()">📐 Segment Analysis</button>
+        </div>
+
+        <!-- Main Plot -->
+        <div class="plot-container" id="mainPlot"></div>
+
+        <!-- Secondary Plot -->
+        <div class="plot-container" id="secondaryPlot"></div>
+
+        <!-- Information Panel -->
+        <div class="info-panel">
+            <div id="infoContent">
+                <h3>🎢 Volume Calculation: Disk Method</h3>
+                <p><strong>Formula:</strong> V = π ∫₀²⁵ [f(x)]² dx</p>
+                <p>This calculates the volume of the cylindrical tunnel formed by rotating the track around the x-axis.</p>
+                <div class="volume-display" id="volumeDisplay">
+                    Total Volume: Loading...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Roller coaster function definition
+        function rollerCoasterFunction(x) {
+            if (x >= 0 && x < 5) {
+                return -0.04 * x * x + 2 * x;
+            } else if (x >= 5 && x < 10) {
+                return 2.55 * Math.sin(Math.PI * (x - 5)) + 9;
+            } else if (x >= 10 && x < 15) {
+                return -0.1 * Math.pow(x - 10, 2) - 1.6 * (x - 10) + 9;
+            } else if (x >= 15 && x < 20) {
+                return 2 * Math.cos(Math.PI * (x - 15)) - 2.6 * (x - 15) - 3.5;
+            } else if (x >= 20 && x <= 25) {
+                return -0.08 * Math.pow(x - 20, 2) - 2.6 * (x - 20) - 18.5;
+            }
+            return 0;
+        }
+
+        // Generate data
+        function generateData() {
+            const x = [];
+            const y = [];
+            const y2 = []; // f(x)²
+
+            for (let i = 0; i <= 500; i++) {
+                const xVal = 25 * i / 500;
+                const yVal = rollerCoasterFunction(xVal);
+                x.push(xVal);
+                y.push(yVal);
+                y2.push(yVal * yVal);
+            }
+
+            return { x, y, y2 };
+        }
+
+        // Calculate volume numerically
+        function calculateVolume() {
+            const segments = [
+                { start: 0, end: 5, name: "Initial Climb" },
+                { start: 5, end: 10, name: "First Hill" },
+                { start: 10, end: 15, name: "Valley Descent" },
+                { start: 15, end: 20, name: "Second Hill" },
+                { start: 20, end: 25, name: "Final Descent" }
+            ];
+
+            let totalVolume = 0;
+            const segmentVolumes = [];
+
+            segments.forEach(segment => {
+                let segmentVolume = 0;
+                const steps = 100;
+                const dx = (segment.end - segment.start) / steps;
+
+                for (let i = 0; i < steps; i++) {
+                    const x = segment.start + i * dx;
+                    const y = rollerCoasterFunction(x);
+                    segmentVolume += Math.PI * y * y * dx;
+                }
+
+                segmentVolumes.push({
+                    ...segment,
+                    volume: Math.abs(segmentVolume)
+                });
+                totalVolume += Math.abs(segmentVolume);
+            });
+
+            return { totalVolume, segmentVolumes };
+        }
+
+        // Update button states
+        function updateButtons(activeId) {
+            document.querySelectorAll('.controls button').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(activeId).classList.add('active');
+        }
+
+        // Show 2D cross-section view
+        function show2DView() {
+            updateButtons('btn-2d');
+            const data = generateData();
+
+            // Original function
+            const originalTrace = {
+                x: data.x,
+                y: data.y,
+                type: 'scatter',
+                mode: 'lines',
+                name: 'f(x) - Track Profile',
+                line: { color: '#E31C23', width: 3 },
+                fill: 'tonexty',
+                fillcolor: 'rgba(227, 28, 35, 0.2)'
+            };
+
+            // Zero line
+            const zeroTrace = {
+                x: data.x,
+                y: data.x.map(() => 0),
+                type: 'scatter',
+                mode: 'lines',
+                name: 'x-axis (rotation axis)',
+                line: { color: '#8B4513', width: 2, dash: 'dash' },
+                showlegend: false
+            };
+
+            // f(x)² for volume calculation
+            const squaredTrace = {
+                x: data.x,
+                y: data.y2,
+                type: 'scatter',
+                mode: 'lines',
+                name: '[f(x)]² - Volume Element',
+                line: { color: '#0066CC', width: 2 },
+                yaxis: 'y2'
+            };
+
+            const layout1 = {
+                title: {
+                    text: '2D Cross-Section: Track Profile for Volume Calculation',
+                    font: { size: 14 }
+                },
+                xaxis: { title: 'Distance (m)' },
+                yaxis: { 
+                    title: 'Height f(x) (m)',
+                    titlefont: { color: '#E31C23' },
+                    tickfont: { color: '#E31C23' }
+                },
+                yaxis2: {
+                    title: '[f(x)]² (m²)',
+                    side: 'right',
+                    overlaying: 'y',
+                    titlefont: { color: '#0066CC' },
+                    tickfont: { color: '#0066CC' }
+                },
+                showlegend: true,
+                legend: { font: { size: 10 } },
+                margin: { t: 40, r: 60, b: 40, l: 50 }
+            };
+
+            Plotly.newPlot('mainPlot', [zeroTrace, originalTrace, squaredTrace], layout1, {responsive: true, displayModeBar: false});
+
+            // Volume visualization
+            const volumeTrace = {
+                x: data.x,
+                y: data.y2.map(val => Math.PI * val),
+                type: 'scatter',
+                mode: 'lines',
+                name: 'π[f(x)]² - Volume Density',
+                line: { color: '#FFD700', width: 3 },
+                fill: 'tozeroy',
+                fillcolor: 'rgba(255, 215, 0, 0.3)'
+            };
+
+            const layout2 = {
+                title: {
+                    text: 'Volume Density Function: π[f(x)]²',
+                    font: { size: 14 }
+                },
+                xaxis: { title: 'Distance (m)' },
+                yaxis: { title: 'Volume Density (m³/m)' },
+                showlegend: true,
+                legend: { font: { size: 10 } },
+                margin: { t: 40, r: 20, b: 40, l: 50 }
+            };
+
+            Plotly.newPlot('secondaryPlot', [volumeTrace], layout2, {responsive: true, displayModeBar: false});
+
+            // Update info
+            const { totalVolume } = calculateVolume();
+            document.getElementById('volumeDisplay').innerHTML = `Total Volume: ${totalVolume.toFixed(2)} m³`;
+            document.getElementById('infoContent').innerHTML = `
+                <h3>🎢 Volume Calculation: Disk Method</h3>
+                <p><strong>Formula:</strong> V = π ∫₀²⁵ [f(x)]² dx</p>
+                <p>The <span style="color: #E31C23; font-weight: bold;">red curve</span> shows the original track profile.</p>
+                <p>The <span style="color: #0066CC; font-weight: bold;">blue curve</span> shows [f(x)]² used in volume calculation.</p>
+                <p>The <span style="color: #FFD700; font-weight: bold;">gold area</span> represents the volume density that gets integrated.</p>
+                <div class="volume-display">Total Volume: ${totalVolume.toFixed(2)} m³</div>
+            `;
+        }
+
+        // Show 3D volume visualization
+        function show3DVolume() {
+            updateButtons('btn-3d');
+
+            // Create 3D surface of revolution
+            const theta = [];
+            const x = [];
+            const r = [];
+
+            // Generate data for surface of revolution
+            for (let i = 0; i <= 100; i++) {
+                const xVal = 25 * i / 100;
+                const radius = Math.abs(rollerCoasterFunction(xVal));
+
+                for (let j = 0; j <= 20; j++) {
+                    const angle = 2 * Math.PI * j / 20;
+                    x.push(xVal);
+                    theta.push(angle);
+                    r.push(radius);
+                }
+            }
+
+            // Convert to Cartesian coordinates
+            const xCart = x;
+            const yCart = r.map((radius, i) => radius * Math.cos(theta[i]));
+            const zCart = r.map((radius, i) => radius * Math.sin(theta[i]));
+
+            // Create 3D surface
+            const surfaceTrace = {
+                x: xCart,
+                y: yCart,
+                z: zCart,
+                type: 'scatter3d',
+                mode: 'markers',
+                marker: {
+                    size: 2,
+                    color: r,
+                    colorscale: [
+                        [0, '#0066CC'],
+                        [0.5, '#FFD700'],
+                        [1, '#E31C23']
+                    ],
+                    opacity: 0.6
+                },
+                name: 'Volume Surface'
+            };
+
+            // Center line
+            const centerData = generateData();
+            const centerTrace = {
+                x: centerData.x,
+                y: centerData.x.map(() => 0),
+                z: centerData.x.map(() => 0),
+                type: 'scatter3d',
+                mode: 'lines',
+                line: { color: '#8B4513', width: 4 },
+                name: 'Rotation Axis'
+            };
+
+            const layout3d = {
+                title: {
+                    text: '3D Volume: Track Rotated Around X-Axis',
+                    font: { size: 14 }
+                },
+                scene: {
+                    xaxis: { title: 'Distance (m)' },
+                    yaxis: { title: 'Y (m)' },
+                    zaxis: { title: 'Z (m)' },
+                    camera: { eye: { x: 2, y: 1, z: 1 } }
+                },
+                margin: { t: 40, r: 20, b: 20, l: 20 }
+            };
+
+            Plotly.newPlot('mainPlot', [surfaceTrace, centerTrace], layout3d, {responsive: true, displayModeBar: false});
+
+            // Cross-sections at different x values
+            const crossSections = [5, 10, 15, 20];
+            const crossTraces = crossSections.map((xVal, i) => {
+                const radius = Math.abs(rollerCoasterFunction(xVal));
+                const angles = [];
+                const y = [];
+                const z = [];
+
+                for (let j = 0; j <= 50; j++) {
+                    const angle = 2 * Math.PI * j / 50;
+                    angles.push(angle);
+                    y.push(radius * Math.cos(angle));
+                    z.push(radius * Math.sin(angle));
+                }
+
+                return {
+                    x: angles.map(() => xVal),
+                    y: y,
+                    z: z,
+                    type: 'scatter3d',
+                    mode: 'lines',
+                    line: { 
+                        color: ['#E31C23', '#FFD700', '#00A652', '#0066CC'][i],
+                        width: 4 
+                    },
+                    name: `Cross-section x=${xVal}m`
+                };
+            });
+
+            const layout2d = {
+                title: {
+                    text: 'Circular Cross-Sections at Different Positions',
+                    font: { size: 14 }
+                },
+                scene: {
+                    xaxis: { title: 'Distance (m)' },
+                    yaxis: { title: 'Y (m)' },
+                    zaxis: { title: 'Z (m)' },
+                    camera: { eye: { x: 0.1, y: 2, z: 0.1 } }
+                },
+                margin: { t: 40, r: 20, b: 20, l: 20 }
+            };
+
+            Plotly.newPlot('secondaryPlot', crossTraces, layout2d, {responsive: true, displayModeBar: false});
+
+            // Update info
+            const { totalVolume } = calculateVolume();
+            document.getElementById('infoContent').innerHTML = `
+                <h3>🌐 3D Volume Visualization</h3>
+                <p><strong>Disk Method:</strong> Each circular cross-section has area π[f(x)]²</p>
+                <p>The volume is formed by "stacking" these circular disks along the x-axis.</p>
+                <p><strong>Engineering Application:</strong> This volume represents the material needed for the track tunnel.</p>
+                <div class="volume-display">Total Volume: ${totalVolume.toFixed(2)} m³</div>
+            `;
+        }
+
+        // Show segment analysis
+        function showSegments() {
+            updateButtons('btn-segments');
+
+            const { totalVolume, segmentVolumes } = calculateVolume();
+            const data = generateData();
+
+            // Create traces for each segment
+            const segmentTraces = segmentVolumes.map((segment, i) => {
+                const segmentData = data.x.map((x, idx) => {
+                    if (x >= segment.start && x < segment.end) {
+                        return data.y2[idx];
+                    }
+                    return null;
+                }).filter(val => val !== null);
+
+                const segmentX = data.x.filter(x => x >= segment.start && x < segment.end);
+
+                const colors = ['#E31C23', '#FF6B35', '#FFD700', '#00A652', '#0066CC'];
+
+                return {
+                    x: segmentX,
+                    y: segmentData.map(val => Math.PI * val),
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: `${segment.name} (${segment.volume.toFixed(1)} m³)`,
+                    line: { color: colors[i], width: 3 },
+                    fill: 'tozeroy',
+                    fillcolor: colors[i].replace(')', ', 0.3)').replace('rgb', 'rgba')
+                };
+            });
+
+            const layout1 = {
+                title: {
+                    text: 'Volume Contribution by Segment',
+                    font: { size: 14 }
+                },
+                xaxis: { title: 'Distance (m)' },
+                yaxis: { title: 'Volume Density π[f(x)]² (m³/m)' },
+                showlegend: true,
+                legend: { font: { size: 10 } },
+                margin: { t: 40, r: 20, b: 40, l: 60 }
+            };
+
+            Plotly.newPlot('mainPlot', segmentTraces, layout1, {responsive: true, displayModeBar: false});
+
+            // Pie chart of volume distribution
+            const pieTrace = {
+                labels: segmentVolumes.map(s => s.name),
+                values: segmentVolumes.map(s => s.volume),
+                type: 'pie',
+                marker: {
+                    colors: ['#E31C23', '#FF6B35', '#FFD700', '#00A652', '#0066CC']
+                },
+                textinfo: 'label+percent',
+                textfont: { size: 12 }
+            };
+
+            const layout2 = {
+                title: {
+                    text: 'Volume Distribution by Segment',
+                    font: { size: 14 }
+                },
+                margin: { t: 40, r: 20, b: 20, l: 20 }
+            };
+
+            Plotly.newPlot('secondaryPlot', [pieTrace], layout2, {responsive: true, displayModeBar: false});
+
+            // Update info with segment details
+            const segmentCards = segmentVolumes.map(segment => 
+                `<div class="segment-card">
+                    <strong>${segment.name}</strong><br>
+                    ${segment.start}m - ${segment.end}m<br>
+                    Volume: ${segment.volume.toFixed(2)} m³
+                </div>`
+            ).join('');
+
+            document.getElementById('infoContent').innerHTML = `
+                <h3>📐 Segment Analysis</h3>
+                <p><strong>Piecewise Integration:</strong> V = π(∫₀⁵ + ∫₅¹⁰ + ∫₁₀¹⁵ + ∫₁₅²⁰ + ∫₂₀²⁵)[f(x)]² dx</p>
+                <div class="segment-info">${segmentCards}</div>
+                <div class="volume-display">Total Volume: ${totalVolume.toFixed(2)} m³</div>
+            `;
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            show2DView();
+        });
+    </script>
+</body>
+</html>
